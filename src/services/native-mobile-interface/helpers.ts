@@ -14,8 +14,10 @@ type ResponseQueue = {
 
 // A persisted queue of responses received from sending requests
 const responseQueue: ResponseQueue = {}
+// TODO: sk - do we need this?
 // @ts-ignore
 window.responseQueue = responseQueue
+
 const receiveMessage = (message: Message) => {
   // TODO verify source/origins
   responseQueue[message.id] = message
@@ -36,7 +38,7 @@ const SPAMMY_MESSAGES = new Set([MessageType.GET_POSITION])
 
 export function* initInterface() {
   const globalWindow = getIsIOS() ? window : document
-  const channel = eventChannel(emitter => {
+  const channel = eventChannel<Message>(emitter => {
     // Attach messages to the window
     globalWindow.addEventListener('message', data => {
       try {
@@ -56,7 +58,7 @@ export function* initInterface() {
   message.send()
 
   while (true) {
-    const message = yield take(channel)
+    const message: Message = yield take(channel)
 
     // Log it if it isn't spammy
     if (!SPAMMY_MESSAGES.has(message.type)) {
@@ -64,11 +66,8 @@ export function* initInterface() {
     }
 
     if (message.isAction) {
-      yield put({
-        // Action type = Message type
-        type: message.type,
-        ...message
-      })
+      // Message type used as Action type
+      yield put(message)
     }
     receiveMessage(message)
   }
@@ -77,9 +76,7 @@ export function* initInterface() {
 /* Message Sending */
 
 export const postMessage = (message: Message) => {
-  // @ts-ignore
   if (window && window.ReactNativeWebView) {
-    // @ts-ignore
     window.ReactNativeWebView.postMessage(JSON.stringify(message))
   }
 }
